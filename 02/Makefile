@@ -23,7 +23,7 @@ allocator.o: allocator.cpp allocator.hpp
 $(GTEST_OBJ): $(GTEST_SRC)
 	$(CC) $(FLAGS) $(INCLUDES) -c $< -o $@
 
-run: $(TARGET)
+test: $(TARGET)
 	./$(TARGET)
 
 clean:

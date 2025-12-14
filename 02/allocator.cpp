@@ -1,4 +1,5 @@
 #include "allocator.hpp"
+#include <new>
 
 void init_buffer(Allocator* alloc, size_t max_size) {
     alloc->buf = new char[max_size];
@@ -7,9 +8,18 @@ void init_buffer(Allocator* alloc, size_t max_size) {
 }
 
 Allocator* init_allocator(size_t max_size) {
-    Allocator* alloc = new Allocator();
-    init_buffer(alloc, max_size);
-    return alloc;
+    try {
+        Allocator* alloc = new Allocator();
+        try {
+            init_buffer(alloc, max_size);
+        } catch (const std::bad_alloc&) {
+            delete alloc;
+            return nullptr;
+        }
+        return alloc;
+    } catch (const std::bad_alloc&) {
+        return nullptr;
+    }
 }
 
 Allocator* init_allocator(Allocator* alloc, size_t max_size) {
@@ -18,7 +28,11 @@ Allocator* init_allocator(Allocator* alloc, size_t max_size) {
     }
 
     delete[] alloc->buf;
-    init_buffer(alloc, max_size);
+    try {
+        init_buffer(alloc, max_size);
+    } catch (const std::bad_alloc&) {
+        return nullptr;
+    }
     return alloc;
 }
 

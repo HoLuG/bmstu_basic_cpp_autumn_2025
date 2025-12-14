@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstdint>
+#include <algorithm>
 
 class Matrix {
 public:
@@ -23,36 +24,7 @@ public:
     public:
         RowProxy() : row_data_(nullptr), column_count_(0) {}
 
-        explicit RowProxy(size_t columns) : column_count_(columns) {
-            row_data_ = new int32_t[column_count_];
-            for (size_t i = 0; i < column_count_; i++) {
-                row_data_[i] = 0;
-            }
-        }
-
-        RowProxy(const RowProxy& other) : column_count_(other.column_count_) {
-            row_data_ = new int32_t[column_count_];
-            for (size_t i = 0; i < column_count_; i++) {
-                row_data_[i] = other.row_data_[i];
-            }
-        }
-
-        RowProxy& operator=(const RowProxy& other) {
-            if (this != &other) {
-                int32_t* new_data = new int32_t[other.column_count_];
-                for (size_t i = 0; i < other.column_count_; i++) {
-                    new_data[i] = other.row_data_[i];
-                }
-                delete[] row_data_;
-                row_data_ = new_data;
-                column_count_ = other.column_count_;
-            }
-            return *this;
-        }
-
-        ~RowProxy() {
-            delete[] row_data_;
-        }
+        RowProxy(int32_t* data, size_t columns) : row_data_(data), column_count_(columns) {}
 
         int32_t& operator[](size_t col) {
             if (col >= column_count_) {
@@ -91,9 +63,12 @@ public:
 
     friend std::ostream& operator<<(std::ostream& os, const Matrix& matrix);
 
+    void swap(Matrix& other) noexcept;
+
 private:
     size_t row_count_;
     size_t column_count_;
+    int32_t* data_;
     RowProxy* row_proxies_;
 };
 

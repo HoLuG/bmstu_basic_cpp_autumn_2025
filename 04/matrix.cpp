@@ -2,35 +2,47 @@
 
 Matrix::Matrix(size_t rows, size_t columns) 
     : row_count_(rows), column_count_(columns) {
+    data_ = new int32_t[row_count_ * column_count_];
+    for (size_t i = 0; i < row_count_ * column_count_; i++) {
+        data_[i] = 0;
+    }
+    
     row_proxies_ = new RowProxy[row_count_];
     for (size_t i = 0; i < row_count_; i++) {
-        row_proxies_[i] = RowProxy(column_count_);
+        row_proxies_[i] = RowProxy(data_ + i * column_count_, column_count_);
     }
 }
 
 Matrix::Matrix(const Matrix& other) 
     : row_count_(other.row_count_), column_count_(other.column_count_) {
+    data_ = new int32_t[row_count_ * column_count_];
+    for (size_t i = 0; i < row_count_ * column_count_; i++) {
+        data_[i] = other.data_[i];
+    }
+    
     row_proxies_ = new RowProxy[row_count_];
     for (size_t i = 0; i < row_count_; i++) {
-        row_proxies_[i] = other.row_proxies_[i];
+        row_proxies_[i] = RowProxy(data_ + i * column_count_, column_count_);
     }
+}
+
+void Matrix::swap(Matrix& other) noexcept {
+    std::swap(row_count_, other.row_count_);
+    std::swap(column_count_, other.column_count_);
+    std::swap(data_, other.data_);
+    std::swap(row_proxies_, other.row_proxies_);
 }
 
 Matrix& Matrix::operator=(const Matrix& other) {
     if (this != &other) {
-        RowProxy* new_proxies = new RowProxy[other.row_count_];
-        for (size_t i = 0; i < other.row_count_; i++) {
-            new_proxies[i] = other.row_proxies_[i];
-        }
-        delete[] row_proxies_;
-        row_proxies_ = new_proxies;
-        row_count_ = other.row_count_;
-        column_count_ = other.column_count_;
+        Matrix temp(other);
+        swap(temp);
     }
     return *this;
 }
 
 Matrix::~Matrix() {
+    delete[] data_;
     delete[] row_proxies_;
 }
 

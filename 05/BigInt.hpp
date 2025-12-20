@@ -13,6 +13,7 @@ private:
 
     void TrimZeros();
     void AllocateMemory(size_t new_length);
+    void swap(BigInt& other) noexcept;
 
 public:
     BigInt();
@@ -25,24 +26,17 @@ public:
 
     BigInt& operator=(const BigInt& rhs);
     BigInt& operator=(BigInt&& rhs) noexcept;
-    BigInt& operator=(int32_t value);
 
     BigInt operator-() const;
 
     BigInt operator+(const BigInt& rhs) const;
-    BigInt operator+(int32_t value) const;
     BigInt& operator+=(const BigInt& rhs);
-    BigInt& operator+=(int32_t value);
 
     BigInt operator-(const BigInt& rhs) const;
-    BigInt operator-(int32_t value) const;
     BigInt& operator-=(const BigInt& rhs);
-    BigInt& operator-=(int32_t value);
 
     BigInt operator*(const BigInt& rhs) const;
-    BigInt operator*(int32_t value) const;
     BigInt& operator*=(const BigInt& rhs);
-    BigInt& operator*=(int32_t value);
 
     bool operator==(const BigInt& rhs) const;
     bool operator!=(const BigInt& rhs) const;

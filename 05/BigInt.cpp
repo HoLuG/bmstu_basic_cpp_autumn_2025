@@ -1,7 +1,7 @@
 #include "BigInt.hpp"
-#include <cstring>
 #include <algorithm>
 #include <sstream>
+#include <stddef.h>
 
 BigInt::BigInt() : length(0), negative(false) {
     data = new int32_t[1];
@@ -10,19 +10,24 @@ BigInt::BigInt() : length(0), negative(false) {
 }
 
 BigInt::BigInt(int32_t value) : length(0), negative(false) {
-    // int64_t для промежуточных вычислений чтобы избежать переполнения при -2147483648
     int64_t abs_value = static_cast<int64_t>(value);
     if (abs_value < 0) {
         negative = true;
         abs_value = -abs_value;
     }
 
-    std::string str_repr = std::to_string(abs_value);
-    length = str_repr.length();
+    int64_t temp = abs_value;
+    length = 0;
+    while (temp > 0) {
+        temp /= 10;
+        length++;
+    }
 
     data = new int32_t[length];
+    temp = abs_value;
     for (size_t i = 0; i < length; i++) {
-        data[length - 1 - i] = str_repr[i] - '0';
+        data[i] = temp % 10;
+        temp /= 10;
     }
 }
 
@@ -69,19 +74,15 @@ BigInt::~BigInt() {
 }
 
 BigInt& BigInt::operator=(const BigInt& rhs) {
-    if (this != &rhs) {
-        delete[] data;
-
-        length = rhs.length;
-        negative = rhs.negative;
-        data = new int32_t[length];
-
-        for (size_t i = 0; i < length; i++) {
-            data[i] = rhs.data[i];
-        }
-    }
-
+    BigInt temp(rhs);
+    this->swap(temp);
     return *this;
+}
+
+void BigInt::swap(BigInt& other) noexcept {
+    std::swap(data, other.data);
+    std::swap(length, other.length);
+    std::swap(negative, other.negative);
 }
 
 BigInt& BigInt::operator=(BigInt&& rhs) noexcept {
@@ -96,11 +97,6 @@ BigInt& BigInt::operator=(BigInt&& rhs) noexcept {
         rhs.length = 0;
     }
 
-    return *this;
-}
-
-BigInt& BigInt::operator=(int32_t value) {
-    *this = BigInt(value);
     return *this;
 }
 
@@ -179,17 +175,8 @@ BigInt BigInt::operator+(const BigInt& rhs) const {
     return result;
 }
 
-BigInt BigInt::operator+(int32_t value) const {
-    return *this + BigInt(value);
-}
-
 BigInt& BigInt::operator+=(const BigInt& rhs) {
     *this = *this + rhs;
-    return *this;
-}
-
-BigInt& BigInt::operator+=(int32_t value) {
-    *this = *this + value;
     return *this;
 }
 
@@ -234,17 +221,8 @@ BigInt BigInt::operator-(const BigInt& rhs) const {
     return result;
 }
 
-BigInt BigInt::operator-(int32_t value) const {
-    return *this - BigInt(value);
-}
-
 BigInt& BigInt::operator-=(const BigInt& rhs) {
     *this = *this - rhs;
-    return *this;
-}
-
-BigInt& BigInt::operator-=(int32_t value) {
-    *this = *this - value;
     return *this;
 }
 
@@ -278,17 +256,8 @@ BigInt BigInt::operator*(const BigInt& rhs) const {
     return result;
 }
 
-BigInt BigInt::operator*(int32_t value) const {
-    return *this * BigInt(value);
-}
-
 BigInt& BigInt::operator*=(const BigInt& rhs) {
     *this = *this * rhs;
-    return *this;
-}
-
-BigInt& BigInt::operator*=(int32_t value) {
-    *this = *this * value;
     return *this;
 }
 
@@ -325,7 +294,7 @@ bool BigInt::operator<(const BigInt& rhs) const {
         abs_smaller = length < rhs.length;
     } else {
         abs_smaller = false;
-        for (int i = length - 1; i >= 0; i--) {
+        for (ssize_t i = static_cast<ssize_t>(length) - 1; i >= 0; i--) {
             if (data[i] != rhs.data[i]) {
                 abs_smaller = data[i] < rhs.data[i];
                 break;
@@ -360,7 +329,7 @@ std::ostream& operator<<(std::ostream& stream, const BigInt& num) {
         stream << '-';
     }
 
-    for (int i = num.length - 1; i >= 0; i--) {
+    for (ssize_t i = static_cast<ssize_t>(num.length) - 1; i >= 0; i--) {
         stream << num.data[i];
     }
 

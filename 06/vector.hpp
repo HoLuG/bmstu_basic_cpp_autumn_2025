@@ -52,6 +52,8 @@ public:
     void resize(size_t count);
     void resize(size_t count, const T& value);
     void reverse();
+
+    void swap(Vector& other) noexcept;
 };
 
 template <>
@@ -158,20 +160,8 @@ Vector<T>::~Vector() {
 template <typename T>
 Vector<T>& Vector<T>::operator=(const Vector& other) {
     if (this != &other) {
-        delete[] data_ptr;
-
-        elem_count = other.elem_count;
-        reserved_space = other.reserved_space;
-        
-        if (reserved_space > 0) {
-            data_ptr = new T[reserved_space];
-            size_t n = elem_count;
-            for (size_t i = 0; i < n; i++) {
-                data_ptr[i] = other.data_ptr[i];
-            }
-        } else {
-            data_ptr = nullptr;
-        }
+        Vector temp(other);
+        swap(temp);
     }
     return *this;
 }
@@ -179,15 +169,7 @@ Vector<T>& Vector<T>::operator=(const Vector& other) {
 template <typename T>
 Vector<T>& Vector<T>::operator=(Vector&& other) noexcept {
     if (this != &other) {
-        delete[] data_ptr;
-
-        data_ptr = other.data_ptr;
-        elem_count = other.elem_count;
-        reserved_space = other.reserved_space;
-
-        other.data_ptr = nullptr;
-        other.elem_count = 0;
-        other.reserved_space = 0;
+        swap(other);
     }
     return *this;
 }
@@ -330,8 +312,10 @@ void Vector<T>::emplace(size_t pos, Args&&... args) {
         reserve(new_cap);
     }
 
-    for (size_t i = elem_count; i > pos; i--) {
-        data_ptr[i] = std::move(data_ptr[i - 1]);
+    if (pos < elem_count) {
+        for (size_t i = elem_count; i > pos; i--) {
+            data_ptr[i] = std::move(data_ptr[i - 1]);
+        }
     }
 
     data_ptr[pos] = T(std::forward<Args>(args)...);
@@ -351,27 +335,14 @@ void Vector<T>::emplace_back(Args&&... args) {
 template <typename T>
 void Vector<T>::pop_back() {
     if (elem_count > 0) {
+        data_ptr[elem_count - 1].~T();
         elem_count--;
     }
 }
 
 template <typename T>
 void Vector<T>::insert(size_t pos, const T& value) {
-    if (pos > elem_count) {
-        throw std::out_of_range("Position out of range");
-    }
-
-    if (elem_count == reserved_space) {
-        size_t new_cap = (reserved_space == 0) ? 1 : reserved_space * 2;
-        reserve(new_cap);
-    }
-
-    for (size_t i = elem_count; i > pos; i--) {
-        data_ptr[i] = std::move(data_ptr[i - 1]);
-    }
-
-    data_ptr[pos] = value;
-    elem_count++;
+    emplace(pos, value);
 }
 
 template <typename T>
@@ -414,6 +385,21 @@ void Vector<T>::reverse() {
         left++;
         right--;
     }
+}
+
+template <typename T>
+void Vector<T>::swap(Vector& other) noexcept {
+    T* temp_ptr = data_ptr;
+    size_t temp_count = elem_count;
+    size_t temp_space = reserved_space;
+
+    data_ptr = other.data_ptr;
+    elem_count = other.elem_count;
+    reserved_space = other.reserved_space;
+
+    other.data_ptr = temp_ptr;
+    other.elem_count = temp_count;
+    other.reserved_space = temp_space;
 }
 
 #endif

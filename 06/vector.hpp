@@ -121,24 +121,35 @@ Vector<T>::Vector() : data_ptr(nullptr), elem_count(0), reserved_space(0) {}
 
 template <typename T>
 Vector<T>::Vector(size_t count) : elem_count(count), reserved_space(count) {
-    data_ptr = new T[count]();
+    if (count > 0) {
+        data_ptr = static_cast<T*>(::operator new(count * sizeof(T)));
+        for (size_t i = 0; i < count; i++) {
+            new (data_ptr + i) T();
+        }
+    } else {
+        data_ptr = nullptr;
+    }
 }
 
 template <typename T>
 Vector<T>::Vector(size_t count, const T& value) : elem_count(count), reserved_space(count) {
-    data_ptr = new T[count];
-    for (size_t i = 0; i < count; i++) {
-        data_ptr[i] = value;
+    if (count > 0) {
+        data_ptr = static_cast<T*>(::operator new(count * sizeof(T)));
+        for (size_t i = 0; i < count; i++) {
+            new (data_ptr + i) T(value);
+        }
+    } else {
+        data_ptr = nullptr;
     }
 }
 
 template <typename T>
 Vector<T>::Vector(const Vector& other) : elem_count(other.elem_count), reserved_space(other.reserved_space) {
     if (reserved_space > 0) {
-        data_ptr = new T[reserved_space];
+        data_ptr = static_cast<T*>(::operator new(reserved_space * sizeof(T)));
         size_t n = elem_count;
         for (size_t i = 0; i < n; i++) {
-            data_ptr[i] = other.data_ptr[i];
+            new (data_ptr + i) T(other.data_ptr[i]);
         }
     } else {
         data_ptr = nullptr;
@@ -154,7 +165,12 @@ Vector<T>::Vector(Vector&& other) noexcept : data_ptr(other.data_ptr), elem_coun
 
 template <typename T>
 Vector<T>::~Vector() {
-    delete[] data_ptr;
+    if (data_ptr != nullptr) {
+        for (size_t i = 0; i < elem_count; i++) {
+            data_ptr[i].~T();
+        }
+        ::operator delete(data_ptr);
+    }
 }
 
 template <typename T>
@@ -244,14 +260,15 @@ size_t Vector<T>::max_size() const {
 template <typename T>
 void Vector<T>::reserve(size_t new_cap) {
     if (new_cap > reserved_space) {
-        T* new_data = new T[new_cap];
+        T* new_data = static_cast<T*>(::operator new(new_cap * sizeof(T)));
         size_t n = elem_count;
         if (data_ptr != nullptr && n > 0) {
             for (size_t i = 0; i < n; i++) {
-                new_data[i] = data_ptr[i];
+                new (new_data + i) T(std::move(data_ptr[i]));
+                data_ptr[i].~T();
             }
         }
-        delete[] data_ptr;
+        ::operator delete(data_ptr);
         data_ptr = new_data;
         reserved_space = new_cap;
     }
@@ -266,16 +283,17 @@ template <typename T>
 void Vector<T>::shrink_to_fit() {
     if (elem_count < reserved_space) {
         if (elem_count == 0) {
-            delete[] data_ptr;
+            ::operator delete(data_ptr);
             data_ptr = nullptr;
             reserved_space = 0;
         } else {
-            T* new_data = new T[elem_count];
+            T* new_data = static_cast<T*>(::operator new(elem_count * sizeof(T)));
             size_t n = elem_count;
             for (size_t i = 0; i < n; i++) {
-                new_data[i] = data_ptr[i];
+                new (new_data + i) T(std::move(data_ptr[i]));
+                data_ptr[i].~T();
             }
-            delete[] data_ptr;
+            ::operator delete(data_ptr);
             data_ptr = new_data;
             reserved_space = elem_count;
         }
@@ -288,7 +306,8 @@ void Vector<T>::push_back(const T& value) {
         size_t new_cap = (reserved_space == 0) ? 1 : reserved_space * 2;
         reserve(new_cap);
     }
-    data_ptr[elem_count++] = value;
+    new (data_ptr + elem_count) T(value);
+    elem_count++;
 }
 
 template <typename T>
@@ -297,7 +316,8 @@ void Vector<T>::push_back(T&& value) {
         size_t new_cap = (reserved_space == 0) ? 1 : reserved_space * 2;
         reserve(new_cap);
     }
-    data_ptr[elem_count++] = std::move(value);
+    new (data_ptr + elem_count) T(std::move(value));
+    elem_count++;
 }
 
 template <typename T>
@@ -313,12 +333,15 @@ void Vector<T>::emplace(size_t pos, Args&&... args) {
     }
 
     if (pos < elem_count) {
-        for (size_t i = elem_count; i > pos; i--) {
-            data_ptr[i] = std::move(data_ptr[i - 1]);
+        new (data_ptr + elem_count) T(std::move(data_ptr[elem_count - 1]));
+        for (size_t i = elem_count - 1; i > pos; i--) {
+            data_ptr[i].~T();
+            new (data_ptr + i) T(std::move(data_ptr[i - 1]));
         }
+        data_ptr[pos].~T();
     }
 
-    data_ptr[pos] = T(std::forward<Args>(args)...);
+    new (data_ptr + pos) T(std::forward<Args>(args)...);
     elem_count++;
 }
 
@@ -329,7 +352,8 @@ void Vector<T>::emplace_back(Args&&... args) {
         size_t new_cap = (reserved_space == 0) ? 1 : reserved_space * 2;
         reserve(new_cap);
     }
-    data_ptr[elem_count++] = T(std::forward<Args>(args)...);
+    new (data_ptr + elem_count) T(std::forward<Args>(args)...);
+    elem_count++;
 }
 
 template <typename T>
@@ -351,8 +375,14 @@ void Vector<T>::resize(size_t count) {
         reserve(count);
     }
 
-    for (size_t i = elem_count; i < count; i++) {
-        data_ptr[i] = T();
+    if (count > elem_count) {
+        for (size_t i = elem_count; i < count; i++) {
+            new (data_ptr + i) T();
+        }
+    } else if (count < elem_count) {
+        for (size_t i = count; i < elem_count; i++) {
+            data_ptr[i].~T();
+        }
     }
 
     elem_count = count;
@@ -364,8 +394,14 @@ void Vector<T>::resize(size_t count, const T& value) {
         reserve(count);
     }
 
-    for (size_t i = elem_count; i < count; i++) {
-        data_ptr[i] = value;
+    if (count > elem_count) {
+        for (size_t i = elem_count; i < count; i++) {
+            new (data_ptr + i) T(value);
+        }
+    } else if (count < elem_count) {
+        for (size_t i = count; i < elem_count; i++) {
+            data_ptr[i].~T();
+        }
     }
 
     elem_count = count;

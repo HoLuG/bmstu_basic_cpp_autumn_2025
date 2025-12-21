@@ -7,11 +7,58 @@
 #include <iterator>
 #include <type_traits>
 
+template<class T>
+class simple_allocator {
+public:
+    using value_type = T;
+    using pointer = T*;
+    using const_pointer = const T*;
+    using reference = T&;
+    using const_reference = const T&;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+
+    template<class U>
+    struct rebind {
+        using other = simple_allocator<U>;
+    };
+
+    simple_allocator() = default;
+
+    template<class U>
+    simple_allocator(const simple_allocator<U>&) {}
+
+    pointer allocate(size_type n) {
+        if (n > max_size()) {
+            throw std::bad_alloc();
+        }
+        return static_cast<pointer>(::operator new(n * sizeof(T)));
+    }
+
+    void deallocate(pointer p, size_type) {
+        ::operator delete(p);
+    }
+
+    size_type max_size() const noexcept {
+        return size_type(-1) / sizeof(T);
+    }
+
+    template<class U>
+    bool operator==(const simple_allocator<U>&) const {
+        return true;
+    }
+
+    template<class U>
+    bool operator!=(const simple_allocator<U>&) const {
+        return false;
+    }
+};
+
 template<
     class Key,
     class T,
     class Compare = std::less<Key>,
-    class Allocator = std::allocator<std::pair<const Key, T>>
+    class Allocator = simple_allocator<std::pair<const Key, T>>
 >
 class bst {
 private:
